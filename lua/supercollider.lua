@@ -98,7 +98,7 @@ end
 
 function S.send_reg(register)
   if not register then register = "" end
-  local text = table.concat(vim.fn.getreg(register, 1, true), ' ')
+  local text = table.concat(vim.fn.getreg(register, 1, true), '')
   S.send(text)
 end
 
@@ -115,15 +115,15 @@ function S.send_node()
   end
   while node ~= nil and node ~= root do
     local t = node:type()
-    if t == "code_block" or t == "function_block" then break end
+    if t == "code_block" then break end
     node = parent
     if node then
       parent = node:parent()
     end
   end
   if not node then return end
-  local start_row, start_col, end_row, end_col = ts_utils.get_node_range(node)
-  local text = table.concat(vim.api.nvim_buf_get_text(0, start_row, start_col, end_row, end_col, {}), ' ')
+  local text = vim.treesitter.query.get_node_text(node, 0)
+  text = string.gsub(text, '\n', '')
   S.send(text)
 end
 
@@ -137,7 +137,7 @@ function S.setup(args)
   vim.api.nvim_create_autocmd({"BufEnter", "BufWinEnter"}, {
     pattern = {"*.sc", "*.scd"},
     callback = function ()
-      vim.cmd 'set ft=supercollider'
+      -- vim.cmd 'set ft=supercollider'
       for key, value in pairs(args.keymaps) do
         key_map(key, value)
       end
