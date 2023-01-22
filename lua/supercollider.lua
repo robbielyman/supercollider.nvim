@@ -4,19 +4,20 @@ local ts_utils = require 'nvim-treesitter.ts_utils'
 local DEFAULTS = {
   boot = {
     enabled = false,
-    file = vim.api.nvim_get_runtime_file("BootSuperCollider.scd", false)[1],
+    split = 'h',
   },
   keymaps = {
     send_line = "<C-L>",
     send_node = "<Leader>s",
     send_visual = "<C-L>",
+    hush = "<C-H>"
   }
 }
 
 local KEYMAPS = {
   send_line = {
     mode = 'n',
-    action = "V<cmd>lua require('supercollider').send_reg()<CR><ESC>",
+    action = "Vy<cmd>lua require('supercollider').send_reg()<CR><ESC>",
     description = "send line to SuperCollider REPL",
   },
   send_node = {
@@ -29,6 +30,11 @@ local KEYMAPS = {
     action = "y<cmd>lua require('supercollider').send_reg()<CR>",
     description = "send selection to SuperCollider REPL",
   },
+  hush = {
+    mode = 'n',
+    action = "<cmd>lua require('supercollider').send('CmdPeriod.run;')<CR>",
+    description = "stops all sound at the SuperCollider REPL",
+  }
 }
 
 local state = {
@@ -38,7 +44,6 @@ local state = {
 }
 
 local function boot_sclang(args)
-  if not args.enabled then return end
   if state.sclang then
     local ok = pcall(vim.api.nvim_set_current_buf, state.sclang)
     if not ok then
@@ -48,8 +53,9 @@ local function boot_sclang(args)
   else
     state.sclang = vim.api.nvim_create_buf(false, false)
     boot_sclang(args)
+    return
   end
-  state.sclang_process = vim.fn.termopen('sclang ' .. args.file, { on_exit = function ()
+  state.sclang_process = vim.fn.termopen('sclang', { on_exit = function ()
     if #vim.fn.win_findbuf(state.sclang) > 0 then
       vim.api.nvim_win_close(vim.fn.win_findbuf(state.sclang)[1], true)
     end
@@ -57,6 +63,7 @@ local function boot_sclang(args)
     state.sclang = nil
     state.sclang_process = nil
   end })
+  S.send("s.boot;\n")
 end
 
 local function launch_sclang(args)
@@ -84,18 +91,18 @@ local function key_map(key, mapping)
   })
 end
 
-function T.send(text)
+function S.send(text)
   if not state.sclang_process then return end
   vim.api.nvim_chan_send(state.sclang_process, text .. '\n')
 end
 
-function T.send_reg(register)
+function S.send_reg(register)
   if not register then register = "" end
-  local text = table.concat(vim.fn.getreg(register, 1, true), '\n')
-  T.send(text)
+  local text = table.concat(vim.fn.getreg(register, 1, true), ' ')
+  S.send(text)
 end
 
-function T.send_node()
+function S.send_node()
   local node = ts_utils.get_node_at_cursor(0)
   local root
   if node then
@@ -116,11 +123,11 @@ function T.send_node()
   end
   if not node then return end
   local start_row, start_col, end_row, end_col = ts_utils.get_node_range(node)
-  local text = table.concat(vim.api.nvim_buf_get_text(0, start_row, start_col, end_row, end_col, {}), '\n')
-  T.send(text)
+  local text = table.concat(vim.api.nvim_buf_get_text(0, start_row, start_col, end_row, end_col, {}), ' ')
+  S.send(text)
 end
 
-function T.setup(args)
+function S.setup(args)
   args = vim.tbl_deep_extend("force", DEFAULTS, args)
   vim.api.nvim_create_user_command('SclangLaunch',
     function () launch_sclang(args.boot) end,
