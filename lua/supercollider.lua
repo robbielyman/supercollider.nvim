@@ -122,7 +122,7 @@ function S.send_node()
     end
   end
   if not node then return end
-  local text = vim.treesitter.query.get_node_text(node, 0)
+  local text = vim.treesitter.get_node_text(node, 0)
   text = string.gsub(text, '\n', '')
   S.send(text)
 end
